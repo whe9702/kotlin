@@ -45,6 +45,7 @@ import org.jetbrains.org.objectweb.asm.*
 import org.jetbrains.org.objectweb.asm.commons.Method
 import org.jetbrains.org.objectweb.asm.tree.MethodNode
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 interface MetadataSerializer {
     fun serialize(metadata: MetadataSource): Pair<MessageLite, JvmStringTable>?
@@ -103,9 +104,16 @@ class ClassCodegen private constructor(
         }
     }
 
+    @Volatile
     private var generated = false
 
     fun generate() {
+        synchronized(this) {
+            doGenerate()
+        }
+    }
+
+    private fun doGenerate() {
         // TODO: reject repeated generate() calls; currently, these can happen for objects in finally
         //       blocks since they are `accept`ed once per each CFG edge out of the try-finally.
         if (generated) return
@@ -312,7 +320,7 @@ class ClassCodegen private constructor(
         }
     }
 
-    private val generatedInlineMethods = mutableMapOf<IrFunction, SMAPAndMethodNode>()
+    private val generatedInlineMethods = ConcurrentHashMap<IrFunction, SMAPAndMethodNode>()
 
     fun generateMethodNode(method: IrFunction): SMAPAndMethodNode {
         if (!method.isInline && !method.isSuspendCapturingCrossinline()) {
@@ -325,8 +333,10 @@ class ClassCodegen private constructor(
         }
         val (node, smap) = generatedInlineMethods.getOrPut(method) { FunctionCodegen(method, this).generate() }
         val copy = with(node) { MethodNode(Opcodes.API_VERSION, access, name, desc, signature, exceptions.toTypedArray()) }
-        node.instructions.resetLabels()
-        node.accept(copy)
+        synchronized(node) {
+            node.instructions.resetLabels()
+            node.accept(copy)
+        }
         return SMAPAndMethodNode(copy, smap)
     }
 
