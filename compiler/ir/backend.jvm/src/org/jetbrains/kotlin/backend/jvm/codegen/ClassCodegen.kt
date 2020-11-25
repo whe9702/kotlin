@@ -45,7 +45,6 @@ import org.jetbrains.org.objectweb.asm.*
 import org.jetbrains.org.objectweb.asm.commons.Method
 import org.jetbrains.org.objectweb.asm.tree.MethodNode
 import java.io.File
-import java.util.concurrent.ConcurrentHashMap
 
 interface MetadataSerializer {
     fun serialize(metadata: MetadataSource): Pair<MessageLite, JvmStringTable>?
@@ -320,9 +319,16 @@ class ClassCodegen private constructor(
         }
     }
 
-    private val generatedInlineMethods = ConcurrentHashMap<IrFunction, SMAPAndMethodNode>()
+    private val generatedInlineMethods = mutableMapOf<IrFunction, SMAPAndMethodNode>()
 
     fun generateMethodNode(method: IrFunction): SMAPAndMethodNode {
+        // TODO: deadlock potential !!!!!!
+        return synchronized(this) {
+            doGenerateMethodNode(method)
+        }
+    }
+
+    private fun doGenerateMethodNode(method: IrFunction): SMAPAndMethodNode {
         if (!method.isInline && !method.isSuspendCapturingCrossinline()) {
             // Inline methods can be used multiple times by `IrSourceCompilerForInline`, suspend methods
             // are used twice (`f` and `f$$forInline`) if they capture crossinline lambdas, and everything
@@ -333,10 +339,8 @@ class ClassCodegen private constructor(
         }
         val (node, smap) = generatedInlineMethods.getOrPut(method) { FunctionCodegen(method, this).generate() }
         val copy = with(node) { MethodNode(Opcodes.API_VERSION, access, name, desc, signature, exceptions.toTypedArray()) }
-        synchronized(node) {
-            node.instructions.resetLabels()
-            node.accept(copy)
-        }
+        node.instructions.resetLabels()
+        node.accept(copy)
         return SMAPAndMethodNode(copy, smap)
     }
 
@@ -369,20 +373,22 @@ class ClassCodegen private constructor(
             val continuationClass = method.continuationClass() // null if `SuspendLambda.invokeSuspend` - `this` is continuation itself
             val continuationClassCodegen = lazy { if (continuationClass != null) getOrCreate(continuationClass, context, method) else this }
 
-            // For suspend lambdas continuation class is null, and we need to use containing class to put L$ fields
-            val attributeContainer = continuationClass?.attributeOwnerId ?: irClass.attributeOwnerId
+            synchronized(continuationClassCodegen) { // TODO: this defeats the purpose of lazy computation for continuationClassCodegen.
+                // For suspend lambdas continuation class is null, and we need to use containing class to put L$ fields
+                val attributeContainer = continuationClass?.attributeOwnerId ?: irClass.attributeOwnerId
 
-            node.acceptWithStateMachine(
-                method,
-                this,
-                smapCopyingVisitor,
-                context.continuationClassesVarsCountByType[attributeContainer] ?: emptyMap()
-            ) {
-                continuationClassCodegen.value.visitor
-            }
+                node.acceptWithStateMachine(
+                    method,
+                    this,
+                    smapCopyingVisitor,
+                    context.continuationClassesVarsCountByType[attributeContainer] ?: emptyMap()
+                ) {
+                    continuationClassCodegen.value.visitor
+                }
 
-            if (continuationClass != null && (continuationClassCodegen.isInitialized() || method.isSuspendCapturingCrossinline())) {
-                continuationClassCodegen.value.generate()
+                if (continuationClass != null && (continuationClassCodegen.isInitialized() || method.isSuspendCapturingCrossinline())) {
+                    continuationClassCodegen.value.generate()
+                }
             }
         } else {
             node.accept(smapCopyingVisitor)
