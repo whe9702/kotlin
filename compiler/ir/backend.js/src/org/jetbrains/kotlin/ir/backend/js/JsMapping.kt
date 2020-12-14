@@ -47,5 +47,11 @@ class JsMapping : DefaultMapping() {
                 map[key] = value
             }
         }
+
+        override val keys: Set<K>
+            get() = map.keys
+
+        override val values: Collection<V>
+            get() = map.values
     }
 }
