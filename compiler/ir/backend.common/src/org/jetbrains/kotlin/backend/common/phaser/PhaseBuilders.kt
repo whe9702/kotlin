@@ -135,7 +135,7 @@ private class PerformByIrFilePhase<Context : CommonBackendContext>(
         context: Context,
         input: IrModuleFragment
     ): IrModuleFragment {
-        val nThreads = context.configuration.get(CommonConfigurationKeys.THREADS_FOR_FILE_LOWERINGS) ?: 1
+        val nThreads = context.configuration.get(CommonConfigurationKeys.THREADS_FOR_FILE_LOWERINGS) ?: 4
         return if (nThreads > 1)
             invokeParallel(phaseConfig, phaserState, context, input, nThreads)
         else
