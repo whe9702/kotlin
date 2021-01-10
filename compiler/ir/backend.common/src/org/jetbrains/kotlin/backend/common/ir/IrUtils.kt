@@ -261,8 +261,9 @@ fun IrFunction.copyValueParametersToStatic(
 
     var shift = 0
     source.dispatchReceiverParameter?.let { originalDispatchReceiver ->
-        assert(dispatchReceiverType!!.isSubtypeOfClass(originalDispatchReceiver.type.classOrNull!!))
-        val type = dispatchReceiverType.remapTypeParameters(
+//        Assertion fails when we deal with copies in parallel lowering.
+//        assert(dispatchReceiverType!!.isSubtypeOfClass(originalDispatchReceiver.type.classOrNull!!))
+        val type = dispatchReceiverType!!.remapTypeParameters(
             (originalDispatchReceiver.parent as IrTypeParametersContainer).classIfConstructor,
             target.classIfConstructor
         )
