@@ -50,6 +50,7 @@ class JvmIrCodegenFactory(private val phaseConfig: PhaseConfig) : CodegenFactory
         val irProviders: List<IrProvider>,
         val extensions: JvmGeneratorExtensions,
         val backendExtension: JvmBackendExtension,
+        val notifyCodegenStart: () -> Unit,
     )
 
     override fun generateModule(state: GenerationState, files: Collection<KtFile>) {
@@ -149,11 +150,12 @@ class JvmIrCodegenFactory(private val phaseConfig: PhaseConfig) : CodegenFactory
             irProviders,
             extensions,
             JvmBackendExtension.Default,
+            {},
         )
     }
 
     fun doGenerateFilesInternal(input: JvmIrBackendInput) {
-        val (state, irModuleFragment, symbolTable, sourceManager, phaseConfig, irProviders, extensions, backendExtension) = input
+        val (state, irModuleFragment, symbolTable, sourceManager, phaseConfig, irProviders, extensions, backendExtension, notifyCodegenStart) = input
         val context = JvmBackendContext(
             state, sourceManager, irModuleFragment.irBuiltins, irModuleFragment,
             symbolTable, phaseConfig, extensions, backendExtension
@@ -166,6 +168,8 @@ class JvmIrCodegenFactory(private val phaseConfig: PhaseConfig) : CodegenFactory
         }
 
         JvmLower(context).lower(irModuleFragment)
+
+        notifyCodegenStart()
 
         for (generateMultifileFacade in listOf(true, false)) {
             for (irFile in irModuleFragment.files) {
@@ -199,10 +203,11 @@ class JvmIrCodegenFactory(private val phaseConfig: PhaseConfig) : CodegenFactory
         sourceManager: PsiSourceManager,
         extensions: JvmGeneratorExtensions,
         backendExtension: JvmBackendExtension,
+        notifyCodegenStart: () -> Unit
     ) {
         val irProviders = configureBuiltInsAndgenerateIrProvidersInFrontendIRMode(irModuleFragment, symbolTable, extensions)
         doGenerateFilesInternal(
-            JvmIrBackendInput(state, irModuleFragment, symbolTable, sourceManager, phaseConfig, irProviders, extensions, backendExtension)
+            JvmIrBackendInput(state, irModuleFragment, symbolTable, sourceManager, phaseConfig, irProviders, extensions, backendExtension, notifyCodegenStart)
         )
     }
 
