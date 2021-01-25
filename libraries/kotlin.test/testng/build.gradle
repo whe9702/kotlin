@@ -3,7 +3,7 @@ description = 'Kotlin Test TestNG'
 apply plugin: 'kotlin-platform-jvm'
 
 configureJvm6Project(project)
-configurePublishing(project)
+//configurePublishing(project)
 ext.javaHome = JDK_17
 
 def includeJava9 = BuildPropertiesExtKt.getIncludeJava9(project.kotlinBuildProperties)

@@ -2,7 +2,7 @@ description = 'Kotlin Test for JS'
 
 apply plugin: 'kotlin-platform-js'
 
-configurePublishing(project)
+//configurePublishing(project)
 
 configurations {
     distJs
@@ -76,7 +76,7 @@ task sourcesJar(type: Jar, dependsOn: classes) {
 artifacts {
     runtime libraryJarWithIr
     archives libraryJarWithIr
-    publishedRuntime libraryJarWithIr
+//    publishedRuntime libraryJarWithIr
     distLibrary libraryJarWithIr
     archives sourcesJar
     distJs(file(compileKotlin2Js.kotlinOptions.outputFile)) {
