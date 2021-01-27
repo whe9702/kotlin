@@ -91,8 +91,7 @@ class JvmBackendContext(
 
     internal val isEnclosedInConstructor = ConcurrentHashMap.newKeySet<IrAttributeContainer>()
 
-    // Only used from codegen, no need for synchronization for now
-    internal val classCodegens = mutableMapOf<IrClass, ClassCodegen>()
+    internal val classCodegens = ConcurrentHashMap<IrClass, ClassCodegen>()
 
     val localDelegatedProperties = ConcurrentHashMap<IrAttributeContainer, List<IrLocalDelegatedPropertySymbol>>()
 
