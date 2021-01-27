@@ -62,10 +62,12 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
 
             testClass<AbstractBlackBoxCodegenTest> {
                 model("codegen/box")
+                model("codegen/boxAgainstJava", excludeDirs = listOf("oldLanguageVersions"))
             }
 
             testClass<AbstractIrBlackBoxCodegenTest> {
                 model("codegen/box", excludeDirs = listOf("oldLanguageVersions"))
+                model("codegen/boxAgainstJava", excludeDirs = listOf("oldLanguageVersions"))
             }
 
             testClass<AbstractJvmIrAgainstOldBoxTest> {
@@ -99,6 +101,7 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
 
             testClass<AbstractFirBlackBoxCodegenTest> {
                 model("codegen/box", excludeDirs = listOf("oldLanguageVersions"))
+                model("codegen/boxAgainstJava", excludeDirs = listOf("oldLanguageVersions"))
             }
 
             testClass<AbstractFirBlackBoxInlineCodegenTest> {
