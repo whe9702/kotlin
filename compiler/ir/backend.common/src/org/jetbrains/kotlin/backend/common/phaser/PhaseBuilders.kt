@@ -119,15 +119,17 @@ fun <Context : CommonBackendContext> namedOpUnitPhase(
 fun <Context : CommonBackendContext> performByIrFile(
     name: String = "PerformByIrFile",
     description: String = "Perform phases by IrFile",
+    copyBeforeLowering: Boolean = true,
     lower: List<CompilerPhase<Context, IrFile, IrFile>>
 ): NamedCompilerPhase<Context, IrModuleFragment> =
     NamedCompilerPhase(
-        name, description, emptySet(), PerformByIrFilePhase(lower), emptySet(), emptySet(), emptySet(),
+        name, description, emptySet(), PerformByIrFilePhase(lower, copyBeforeLowering), emptySet(), emptySet(), emptySet(),
         setOf(defaultDumper), nlevels = 1,
     )
 
 private class PerformByIrFilePhase<Context : CommonBackendContext>(
-    private val lower: List<CompilerPhase<Context, IrFile, IrFile>>
+    private val lower: List<CompilerPhase<Context, IrFile, IrFile>>,
+    private val copyBeforeLowering: Boolean
 ) : SameTypeCompilerPhase<Context, IrModuleFragment> {
     override fun invoke(
         phaseConfig: PhaseConfig,
@@ -174,7 +176,10 @@ private class PerformByIrFilePhase<Context : CommonBackendContext>(
 
         // Each thread needs its own copy of phaserState.alreadyDone
         val filesAndStates = input.files.map {
-            it.copySavingMappings(remappedFiles, remappedFunctions, remappedClasses) to phaserState.clone()
+            if (copyBeforeLowering)
+                it.copySavingMappings(remappedFiles, remappedFunctions, remappedClasses) to phaserState.clone()
+            else
+                it to phaserState.clone()
         }
 
         val executor = Executors.newFixedThreadPool(nThreads)
@@ -200,12 +205,15 @@ private class PerformByIrFilePhase<Context : CommonBackendContext>(
         // Presumably each thread has run through the same list of phases.
         phaserState.alreadyDone.addAll(filesAndStates[0].second.alreadyDone)
 
-        input.files.clear()
-        input.files.addAll(filesAndStates.map { (irFile, _) -> irFile }.toMutableList())
+        // Repair after working on copied files.
+        if (copyBeforeLowering) {
+            input.files.clear()
+            input.files.addAll(filesAndStates.map { (irFile, _) -> irFile }.toMutableList())
 
-        adjustDefaultArgumentStubs(context, remappedFunctions)
-        context.handleDeepCopy(remappedFiles, remappedClasses, remappedFunctions)
-        input.transformChildrenVoid(CrossFileCallAdjuster(remappedFunctions))
+            adjustDefaultArgumentStubs(context, remappedFunctions)
+            context.handleDeepCopy(remappedFiles, remappedClasses, remappedFunctions)
+            input.transformChildrenVoid(CrossFileCallAdjuster(remappedFunctions))
+        }
 
         // TODO: no guarantee that module identity is preserved by `lower`
         return input
