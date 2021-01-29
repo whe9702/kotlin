@@ -29,6 +29,7 @@ import org.jetbrains.kotlin.idea.caches.project.getModuleInfo
 import org.jetbrains.kotlin.idea.caches.trackers.clearInBlockModifications
 import org.jetbrains.kotlin.idea.caches.trackers.inBlockModifications
 import org.jetbrains.kotlin.idea.compiler.IdeMainFunctionDetectorFactory
+import org.jetbrains.kotlin.idea.compiler.IdeSealedClassInheritorsProvider
 import org.jetbrains.kotlin.idea.project.IdeaModuleStructureOracle
 import org.jetbrains.kotlin.idea.project.findAnalyzerServices
 import org.jetbrains.kotlin.idea.project.languageVersionSettings
@@ -451,7 +452,8 @@ private object KotlinResolveDataProvider {
                 targetPlatform.findAnalyzerServices(project),
                 analyzableElement.languageVersionSettings,
                 IdeaModuleStructureOracle(),
-                IdeMainFunctionDetectorFactory()
+                IdeMainFunctionDetectorFactory(),
+                IdeSealedClassInheritorsProvider
             ).get<LazyTopDownAnalyzer>()
 
             lazyTopDownAnalyzer.analyzeDeclarations(TopDownAnalysisMode.TopLevelDeclarations, listOf(analyzableElement))

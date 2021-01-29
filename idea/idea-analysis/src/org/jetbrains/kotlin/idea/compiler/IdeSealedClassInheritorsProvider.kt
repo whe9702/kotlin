@@ -5,6 +5,8 @@
 
 package org.jetbrains.kotlin.idea.compiler
 
+import com.intellij.openapi.module.Module
+import com.intellij.openapi.module.ModuleManager
 import com.intellij.psi.*
 import com.intellij.psi.search.*
 import com.intellij.psi.search.searches.ClassInheritorsSearch
@@ -12,6 +14,8 @@ import com.intellij.psi.search.searches.ClassInheritorsSearch.SearchParameters
 import org.jetbrains.kotlin.asJava.toLightClass
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.containingPackage
+import org.jetbrains.kotlin.idea.caches.project.isMPPModule
+import org.jetbrains.kotlin.idea.caches.project.isNewMPPModule
 import org.jetbrains.kotlin.idea.caches.resolve.util.javaResolutionFacade
 import org.jetbrains.kotlin.idea.caches.resolve.util.resolveToDescriptor
 import org.jetbrains.kotlin.idea.util.module
@@ -29,7 +33,7 @@ object IdeSealedClassInheritorsProvider : SealedClassInheritorsProvider() {
         val sealedKtClass = sealedClass.findPsi() as? KtClass ?: return emptyList()
         val searchScope: SearchScope = if (allowSealedInheritorsInDifferentFilesOfSamePackage) {
             val module = sealedKtClass.module ?: return emptyList()
-            val moduleSourceScope = GlobalSearchScope.moduleScope(module)
+            val moduleSourceScope = module.getSourceScope()
             val containingPackage = sealedClass.containingPackage() ?: return emptyList()
             val psiPackage = getPackageViaDirectoryService(sealedKtClass)
                 ?: JavaPsiFacade.getInstance(sealedKtClass.project).findPackage(containingPackage.asString())
@@ -49,6 +53,13 @@ object IdeSealedClassInheritorsProvider : SealedClassInheritorsProvider() {
                 it.resolveToDescriptor(resolutionFacade)
             }.filterNotNull()
             .sortedBy(ClassDescriptor::getName) // order needs to be stable (at least for tests)
+    }
+
+    private fun Module.getSourceScope(): SearchScope = if (isMPPModule || isNewMPPModule) {
+        val commonModule = ModuleManager.getInstance(project).modules.find { it.name.endsWith(".commonMain") }
+        commonModule?.moduleContentScope?.uniteWith(moduleContentScope) ?: moduleContentScope
+    } else {
+        moduleContentScope
     }
 
     private fun getPackageViaDirectoryService(ktClass: KtClass): PsiPackage? {
