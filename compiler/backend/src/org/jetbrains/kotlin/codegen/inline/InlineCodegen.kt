@@ -605,11 +605,13 @@ abstract class InlineCodegen<out T : BaseExpressionCodegen>(
         }
 
         private fun cloneMethodNode(methodNode: MethodNode): MethodNode {
-            methodNode.instructions.resetLabels()
-            return MethodNode(
-                Opcodes.API_VERSION, methodNode.access, methodNode.name, methodNode.desc, methodNode.signature,
-                ArrayUtil.toStringArray(methodNode.exceptions)
-            ).also(methodNode::accept)
+            synchronized(methodNode) {
+                methodNode.instructions.resetLabels()
+                return MethodNode(
+                    Opcodes.API_VERSION, methodNode.access, methodNode.name, methodNode.desc, methodNode.signature,
+                    ArrayUtil.toStringArray(methodNode.exceptions)
+                ).also(methodNode::accept)
+            }
         }
 
         private fun doCreateMethodNodeFromCompiled(
