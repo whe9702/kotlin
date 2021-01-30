@@ -386,13 +386,11 @@ object KotlinToJVMBytecodeCompiler {
 
             ProgressIndicatorAndCompilationCanceledStatus.checkCanceled()
 
-            performanceManager?.notifyIRLoweringStarted()
+            performanceManager?.notifyIRGenerationStarted()
             generationState.beforeCompile()
             codegenFactory.generateModuleInFrontendIRMode(
                 generationState, moduleFragment, symbolTable, sourceManager, extensions, FirJvmBackendExtension(session, components),
                 {
-                    performanceManager?.notifyIRLoweringFinished()
-                    performanceManager?.notifyIRGenerationStarted()
                 }
             )
             CodegenFactory.doCheckCancelled(generationState)
