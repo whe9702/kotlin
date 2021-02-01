@@ -162,6 +162,8 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns, val context: JsIrBackendC
 
     val jsImul = getInternalFunction("imul")
 
+    val jsUnreachableDeclaration = getInternalFunction("unreachableDeclaration")
+
     // Coroutines
 
     val jsCoroutineContext
