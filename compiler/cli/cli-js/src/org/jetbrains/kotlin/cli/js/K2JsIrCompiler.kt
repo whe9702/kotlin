@@ -264,6 +264,7 @@ class K2JsIrCompiler : CLICompiler<K2JSCompilerArguments>() {
                     mainArguments = mainCallArguments,
                     generateFullJs = !arguments.irDce,
                     generateDceJs = arguments.irDce,
+                    dceMode = DceMode.resolvePolicy(arguments.irDceMode),
                     dceDriven = arguments.irDceDriven,
                     multiModule = arguments.irPerModule,
                     relativeRequirePath = true,

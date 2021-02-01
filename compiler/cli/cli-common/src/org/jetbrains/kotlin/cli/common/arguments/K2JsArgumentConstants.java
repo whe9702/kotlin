@@ -28,4 +28,6 @@ public interface K2JsArgumentConstants {
     String SOURCE_MAP_SOURCE_CONTENT_ALWAYS = "always";
     String SOURCE_MAP_SOURCE_CONTENT_NEVER = "never";
     String SOURCE_MAP_SOURCE_CONTENT_INLINING = "inlining";
+
+    String REMOVAL_DECLARATION = "removal-declaration";
 }
