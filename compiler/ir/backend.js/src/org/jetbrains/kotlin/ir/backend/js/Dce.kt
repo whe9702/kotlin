@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.ir.backend.js
 import org.jetbrains.kotlin.backend.common.ir.isMemberOfOpenClass
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.backend.js.export.isExported
+import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
 import org.jetbrains.kotlin.ir.backend.js.utils.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
@@ -20,6 +21,7 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
+import org.jetbrains.kotlin.js.config.DceMode
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.utils.addIfNotNull
 import java.util.*
@@ -34,7 +36,11 @@ fun eliminateDeadDeclarations(
     val usefulDeclarations = usefulDeclarations(allRoots, context)
 
     stageController.unrestrictDeclarationListsAccess {
-        removeUselessDeclarations(modules, usefulDeclarations)
+        removeUselessDeclarations(
+            modules,
+            usefulDeclarations,
+            context
+        )
     }
 }
 
@@ -67,7 +73,11 @@ private fun buildRoots(modules: Iterable<IrModuleFragment>, context: JsIrBackend
     return rootDeclarations
 }
 
-private fun removeUselessDeclarations(modules: Iterable<IrModuleFragment>, usefulDeclarations: Set<IrDeclaration>) {
+private fun removeUselessDeclarations(
+    modules: Iterable<IrModuleFragment>,
+    usefulDeclarations: Set<IrDeclaration>,
+    context: JsIrBackendContext
+) {
     modules.forEach { module ->
         module.files.forEach {
             it.acceptVoid(object : IrElementVisitorVoid {
@@ -99,7 +109,7 @@ private fun removeUselessDeclarations(modules: Iterable<IrModuleFragment>, usefu
                 private fun process(container: IrDeclarationContainer) {
                     container.declarations.transformFlat { member ->
                         if (member !in usefulDeclarations) {
-                            emptyList()
+                            member.processNonUsefulDeclaration(context)
                         } else {
                             member.acceptVoid(this)
                             null
@@ -109,6 +119,31 @@ private fun removeUselessDeclarations(modules: Iterable<IrModuleFragment>, usefu
             })
         }
     }
+}
+
+private fun IrDeclaration.processNonUsefulDeclaration(context: JsIrBackendContext): List<IrDeclaration>? {
+    if (context.dceMode == DceMode.REMOVAL_DECLARATION) {
+        return emptyList()
+    }
+
+    if (context.dceMode == DceMode.LOGGING) {
+        val jsUnreachableDeclaration = context.intrinsics.jsUnreachableDeclaration
+        if (this is IrFunction && this.symbol != jsUnreachableDeclaration) {
+            val call = JsIrBuilder.buildCall(
+                target = jsUnreachableDeclaration,
+                type = returnType
+            ).apply {
+                putValueArgument(
+                    0,
+                    JsIrBuilder.buildInt(context.irBuiltIns.intType, 0)
+                )
+            }
+            body?.addFunctionCall(call, this)
+        }
+        return null
+    }
+
+    return null
 }
 
 // TODO refactor it, the function became too big. Please contact me (Zalim) before doing it.
