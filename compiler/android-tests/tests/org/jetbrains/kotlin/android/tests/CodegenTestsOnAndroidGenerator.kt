@@ -137,17 +137,22 @@ class CodegenTestsOnAndroidGenerator private constructor(private val pathManager
     private fun generateTestsAndFlavourSuites() {
         println("Generating test files...")
 
-        generateTestMethodsForDirectories(File("compiler/testData/codegen/box"), File("compiler/testData/codegen/boxInline"))
+        generateTestMethodsForDirectories(
+            File("compiler/testData/codegen/box"),
+            File("compiler/testData/codegen/boxInline"),
+            excludedDirectories = listOf(File("compiler/testData/codegen/box/compileKotlinAgainstKotlin"))
+        )
 
         pendingUnitTestGenerators.values.forEach { it.generate() }
     }
 
-    private fun generateTestMethodsForDirectories(vararg dirs: File) {
+    private fun generateTestMethodsForDirectories(vararg dirs: File, excludedDirectories: List<File> = emptyList()) {
         val holders = mutableMapOf<ConfigurationKey, FilesWriter>()
 
+        val excludedPaths = excludedDirectories.mapTo(mutableSetOf()) { it.absolutePath }
         for (dir in dirs) {
             val files = dir.listFiles() ?: error("Folder with testData is empty: ${dir.absolutePath}")
-            processFiles(files, holders)
+            processFiles(files, holders, excludedPaths)
         }
 
         holders.values.forEach {
@@ -244,7 +249,8 @@ class CodegenTestsOnAndroidGenerator private constructor(private val pathManager
     @Throws(IOException::class)
     private fun processFiles(
         files: Array<File>,
-        holders: MutableMap<ConfigurationKey, FilesWriter>
+        holders: MutableMap<ConfigurationKey, FilesWriter>,
+        excludedDirectories: Set<String>
     ) {
         holders.values.forEach {
             it.writeFilesOnDiskIfNeeded()
@@ -252,9 +258,15 @@ class CodegenTestsOnAndroidGenerator private constructor(private val pathManager
 
         for (file in files) {
             if (file.isDirectory) {
+                print(file.absolutePath)
+                println(" ${file.absolutePath in excludedDirectories}")
+                if (file.absolutePath == "/home/demiurg/Programming/kotlin/kotlin-pill/compiler/testData/codegen/box/compileKotlinAgainstKotlin") {
+                    println(excludedDirectories)
+                }
+                if (file.absolutePath in excludedDirectories) continue
                 val listFiles = file.listFiles()
                 if (listFiles != null) {
-                    processFiles(listFiles, holders)
+                    processFiles(listFiles, holders, excludedDirectories)
                 }
             } else if (FileUtilRt.getExtension(file.name) != KotlinFileType.EXTENSION) {
                 // skip non kotlin files
