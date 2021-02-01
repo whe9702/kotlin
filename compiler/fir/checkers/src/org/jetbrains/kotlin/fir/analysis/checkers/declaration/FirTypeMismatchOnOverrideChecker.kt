@@ -5,10 +5,10 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration
 
-import org.jetbrains.kotlin.fir.FirSourceElement
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
+import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.scopes.FirTypeScope
@@ -16,7 +16,10 @@ import org.jetbrains.kotlin.fir.scopes.getDirectOverriddenFunctions
 import org.jetbrains.kotlin.fir.scopes.getDirectOverriddenProperties
 import org.jetbrains.kotlin.fir.scopes.impl.toConeType
 import org.jetbrains.kotlin.fir.scopes.unsubstitutedScope
-import org.jetbrains.kotlin.fir.symbols.impl.*
+import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.typeContext
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
@@ -130,10 +133,12 @@ object FirTypeMismatchOnOverrideChecker : FirRegularClassChecker() {
         )
 
         restriction?.let {
-            reporter.reportMismatchOnFunction(
+            reporter.reportOn(
                 function.returnTypeRef.source,
+                FirErrors.RETURN_TYPE_MISMATCH_ON_OVERRIDE,
                 function.returnTypeRef.coneType.toString(),
-                it
+                it,
+                context
             )
         }
     }
@@ -163,30 +168,22 @@ object FirTypeMismatchOnOverrideChecker : FirRegularClassChecker() {
 
         restriction?.let {
             if (property.isVar) {
-                reporter.reportMismatchOnVariable(
+                reporter.reportOn(
                     property.returnTypeRef.source,
+                    FirErrors.VAR_TYPE_MISMATCH_ON_OVERRIDE,
                     property.returnTypeRef.coneType.toString(),
-                    it
+                    it,
+                    context
                 )
             } else {
-                reporter.reportMismatchOnProperty(
+                reporter.reportOn(
                     property.returnTypeRef.source,
+                    FirErrors.PROPERTY_TYPE_MISMATCH_ON_OVERRIDE,
                     property.returnTypeRef.coneType.toString(),
-                    it
+                    it,
+                    context
                 )
             }
         }
-    }
-
-    private fun DiagnosticReporter.reportMismatchOnFunction(source: FirSourceElement?, type: String, declaration: FirMemberDeclaration) {
-        source?.let { report(FirErrors.RETURN_TYPE_MISMATCH_ON_OVERRIDE.on(it, type, declaration)) }
-    }
-
-    private fun DiagnosticReporter.reportMismatchOnProperty(source: FirSourceElement?, type: String, declaration: FirMemberDeclaration) {
-        source?.let { report(FirErrors.PROPERTY_TYPE_MISMATCH_ON_OVERRIDE.on(it, type, declaration)) }
-    }
-
-    private fun DiagnosticReporter.reportMismatchOnVariable(source: FirSourceElement?, type: String, declaration: FirMemberDeclaration) {
-        source?.let { report(FirErrors.VAR_TYPE_MISMATCH_ON_OVERRIDE.on(it, type, declaration)) }
     }
 }
