@@ -29,6 +29,7 @@ import com.intellij.util.containers.MultiMap
 import org.jetbrains.kotlin.asJava.namedUnwrappedElement
 import org.jetbrains.kotlin.asJava.toLightClass
 import org.jetbrains.kotlin.asJava.toLightMethods
+import org.jetbrains.kotlin.backend.common.serialization.findPackage
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.impl.MutablePackageFragmentDescriptor
@@ -55,6 +56,7 @@ import org.jetbrains.kotlin.idea.refactoring.pullUp.renderForConflicts
 import org.jetbrains.kotlin.idea.search.and
 import org.jetbrains.kotlin.idea.search.getKotlinFqName
 import org.jetbrains.kotlin.idea.search.not
+import org.jetbrains.kotlin.idea.search.usagesSearch.descriptor
 import org.jetbrains.kotlin.idea.util.projectStructure.getModule
 import org.jetbrains.kotlin.idea.util.projectStructure.module
 import org.jetbrains.kotlin.js.resolve.diagnostics.findPsi
@@ -690,8 +692,8 @@ class MoveConflictChecker(
             // Ok, class joins at least one member of the hierarchy. But probably it leaves the package where other members still exist.
             // It doesn't mean we should prevent such move but it might be good for the user to be aware of the situation.
 
-            val packageToMoveFrom = classToMove.containingFile.containingDirectory.getPackage() ?: return null
             val moduleToMoveFrom = classToMove.module ?: return null
+            val packageToMoveFrom = classToMoveDesc.findPsiPackage(moduleToMoveFrom) ?: return null
 
             val membersRemainingInOriginalPackage =
                 otherHierarchyMembers.filter { it.residesIn(moduleToMoveFrom, packageToMoveFrom) && !isToBeMoved(it) }.toList()
@@ -708,8 +710,16 @@ class MoveConflictChecker(
             return null
         }
 
-        private fun PsiElement.residesIn(targetModule: Module, targetPackage: PsiPackage): Boolean =
-            containingFile.containingDirectory.getPackage() == targetPackage && module == targetModule
+        private fun KtClassOrObject.residesIn(targetModule: Module, targetPackage: PsiPackage): Boolean {
+            val myModule = module ?: return false
+            val myPackage = descriptor?.findPsiPackage(myModule)
+            return myPackage == targetPackage && myModule == targetModule
+        }
+
+        private fun DeclarationDescriptor.findPsiPackage(module: Module): PsiPackage? {
+            val fqName = findPackage().fqName
+            return KotlinJavaPsiFacade.getInstance(project).findPackage(fqName.asString(), GlobalSearchScope.moduleScope(module))
+        }
 
         private fun KotlinMoveTarget.getTargetPackage(): PsiPackage? {
 
@@ -750,7 +760,7 @@ class MoveConflictChecker(
                 .sortedBy(ClassDescriptor::getName)
         }
 
-        private fun ClassDescriptor.listSealedHierarchyMembers(): MutableList<PsiElement> {
+        private fun ClassDescriptor.listSealedHierarchyMembers(): MutableList<KtClassOrObject> {
 
             fun ClassDescriptor.listMembersInternal(members: MutableList<ClassDescriptor>) {
                 val alreadyVisited = !visited.add(this)
@@ -771,7 +781,7 @@ class MoveConflictChecker(
 
             val members = mutableListOf<ClassDescriptor>()
             listMembersInternal(members)
-            return members.mapNotNull { it.findPsi() }.toMutableList()
+            return members.mapNotNull { it.findPsi() as? KtClassOrObject }.toMutableList()
         }
 
         private fun List<PsiElement>.toNamesList(): List<String> = mapNotNull { el -> el.getKotlinFqName()?.asString() }.toList()
